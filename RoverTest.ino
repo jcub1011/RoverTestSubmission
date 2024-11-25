@@ -12,36 +12,25 @@
 #include "RoverWheels.h"
 #include "StopWatch.h"
 
-enum RoverWheelState {
-  Stop,
-  Straight,
-  ShortStraight,
-  CorrectLeft,
-  TurnLeft,
-  CorrectRight,
-  TurnRight,
-  Backup
+enum RoverMoveDir {
+  Left,
+  Right,
+  Straight
 };
-
 
 fgcu::FourPin motorPinsLeft { A0, A1, A2, A3};
 fgcu::FourPin motorPinsRight { 4, 5, 6, 7};
 float speed = 600.f;
 fgcu::RoverWheels wheels{motorPinsLeft, motorPinsRight, speed};
 
-RoverWheelState wheelStates[] = { Straight, TurnLeft, ShortStraight, Backup, 
-                                  CorrectRight, ShortStraight, CorrectRight, 
-                                  Straight, Stop };
-int wheelStateCount = 9;
-int wheelStateIndex = 0;
+bool roverTurnLeft = false;
+RoverMoveDir moveDir = Straight;
 
 const byte ServoPin = 9;
 const byte EchoPin = A5;
 const byte TriggerPin = A4;
 
 fgcu::RoverHead head{EchoPin, TriggerPin, ServoPin};
-
-
 
 void setup() {
 
@@ -62,73 +51,58 @@ void setup() {
 
 
 void loop() {
-
-  // run the head as often as possible in case it is turning
-  head.run();
-
-  // run the wheels as often as possible in case they are moving
   if (!wheels.run()) { // if last movement completed
+    // The plan is to have the bot drive straight until it is 10 in from a wall.
+    // Then it will look left -> right. 
+    // Whichever is further is the direction it will turn to and go.
 
-    // start next movement
-    if (wheelStateIndex < wheelStateCount) {      
-      Serial.print("Bearing: ");
-      Serial.print(head.getBearing());
-      Serial.print(" Distance: ");
-      Serial.print(head.getDistance());
-      Serial.print('\n');
+    // Get Left Dist
+    delay(1000);
+    Serial.println("Looking Left");
+    head.turnHead(180);
+    while(head.run()) {}
+    word leftDist = head.getDistance();
+    Serial.println(leftDist);
 
-      moveWheels();
-      ++wheelStateIndex;
+    // Get Right Dist
+    delay(1000);
+    Serial.println("Looking Straight");
+    head.turnHead(90);
+    while(head.run()) {}
+    word straightDist = head.getDistance();
+    Serial.println(straightDist);
+
+    // Select Direction
+    Serial.println("Choosing Direction");
+    if (straightDist <= 10) {
+      if (leftDist > 20) {
+        moveDir = Left;
+      }
+      else {
+        moveDir = Right;
+      }
     }
+    else {
+      moveDir = Straight;
+    }
+    Serial.println(moveDir);
 
+    // Perform Movement
+    Serial.println("Performing Movement");
+    if (moveDir == Left) {
+      wheels.turnLeft();
+    }
+    else if (moveDir == Right) {
+      wheels.turnRight();
+    }
+    else {
+      if (straightDist > 26) {
+        wheels.moveForward(2.0f);
+      }
+      else {
+        wheels.moveForward((float)(straightDist - 10) / 8.0f);
+      }
+    }
   }
 
 } // loop
-
-// method uses the states collection to see what wheel state to execute next
-void moveWheels() {
-
-  switch (wheelStates[wheelStateIndex]) {
-    case Stop:
-      Serial.print("Stop\n");
-      wheels.stop();
-      head.turnHead(90);
-      break;
-    case Straight:
-      Serial.print("Straight\n");
-      wheels.moveForward();
-      head.turnHead(90);
-      break;
-    case ShortStraight:
-      Serial.print("ShortStraight\n");
-      wheels.moveForward(0.5f);
-      head.turnHead(90);
-      break;
-    case CorrectLeft:
-      Serial.print("CorrectLeft\n");
-      wheels.turnLeft(0.5f);
-      head.turnHead(135);
-      break;
-    case TurnLeft:
-      Serial.print("TurnLeft\n");
-      wheels.turnLeft();
-      head.turnHead(180);
-      break;
-    case CorrectRight:
-      Serial.print("CorrectRight\n");
-      wheels.turnRight(0.5f);
-      head.turnHead(45);
-      break;
-    case TurnRight:
-      Serial.print("TurnRight\n");
-      wheels.turnRight();
-      head.turnHead(0);
-      break;
-    case Backup:
-      Serial.print("Backup\n");
-      wheels.moveBackward();
-      head.turnHead(90);
-  } // rover state
-
-} // moveWheels
-

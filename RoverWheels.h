@@ -56,6 +56,7 @@ public:
     _motorRight.setSpeed(_speed);
   }
 	
+  // Full rotation is 8 in.
 	void moveForward(float scale=1.f) { 
     _motorLeft.forward(_speed, scale);
     _motorRight.forward(_speed, scale);

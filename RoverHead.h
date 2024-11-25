@@ -33,17 +33,19 @@ public:
 
   bool isMeasuring() { return _measuring; }
 
+  /// Angle
   byte getBearing() { return _bearing; }
 
+  // Inches. Returns 1000 when distance measure times out.
   word getDistance() { return _distance; }
 
   void turnHead(byte direction) {
     _bearing = direction;
     _servo.moveTo(_bearing);
     _measuring = true;
+    //while(run()) {}
     run(); // kick off running
   }
-
 
   bool run() {
     bool running = false;
@@ -58,6 +60,9 @@ public:
         // if measurement didn't timeout
         if (inches > 0) { 
           _distance = inches;
+        }
+        else {
+          _distance = 100;
         }
         
         _measuring = false;
