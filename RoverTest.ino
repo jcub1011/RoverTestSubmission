@@ -38,6 +38,7 @@ void setup() {
 
   Serial.begin(9600);
 
+  // 180 is left, 90 is straight, and 0 is right.
   head.turnHead(90);
 
   // blocking call to get the head turned 
@@ -54,7 +55,8 @@ void loop() {
   if (!wheels.run()) { // if last movement completed
     // The plan is to have the bot drive straight until it is 10 in from a wall.
     // Then it will look left -> right. 
-    // Whichever is further is the direction it will turn to and go.
+    // My kit is broken and cannot look right. I decided to make it check straight and forward instead.
+    // It checks again immediately after turning in case it is at a dead end.
 
     // Get Left Dist
     delay(1000);
@@ -64,7 +66,7 @@ void loop() {
     word leftDist = head.getDistance();
     Serial.println(leftDist);
 
-    // Get Right Dist
+    // Get Straight Dist
     delay(1000);
     Serial.println("Looking Straight");
     head.turnHead(90);
