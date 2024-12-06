@@ -11,6 +11,7 @@
 #include "RoverHead.h"
 #include "RoverWheels.h"
 #include "StopWatch.h"
+//#include <math.h>
 
 enum RoverMoveDir {
   Left,
@@ -30,6 +31,9 @@ const byte ServoPin = 9;
 const byte EchoPin = A5;
 const byte TriggerPin = A4;
 
+word currentLeftDistance = 0;
+word prevLeftDistance = 0;
+
 fgcu::RoverHead head{EchoPin, TriggerPin, ServoPin};
 
 void setup() {
@@ -40,13 +44,11 @@ void setup() {
 
   // 180 is left, 90 is straight, and 0 is right.
   head.turnHead(90);
+  while(head.run()) {}
 
-  // blocking call to get the head turned 
-  // to 90 degrees and distance taken
-  bool done = false;
-  do {
-    done = head.run();
-  } while (!done);
+  head.turnHead(180);
+  while(head.run()) {}
+  currentLeftDistance = head.getDistance();
   
 } // setup
 
@@ -63,8 +65,10 @@ void loop() {
     Serial.println("Looking Left");
     head.turnHead(180);
     while(head.run()) {}
-    word leftDist = head.getDistance();
-    Serial.println(leftDist);
+    prevLeftDistance = currentLeftDistance;
+    currentLeftDistance = head.getDistance();
+    Serial.println(prevLeftDistance);
+    Serial.println(currentLeftDistance);
 
     // Get Straight Dist
     delay(1000);
@@ -77,7 +81,12 @@ void loop() {
     // Select Direction
     Serial.println("Choosing Direction");
     if (straightDist <= 10) {
-      if (leftDist > 20) {
+      if (straightDist <= 4) {
+        // Back up if too close to wall.
+          wheels.moveBackward(0.4);
+          while (wheels.run()) {}
+      }
+      if (currentLeftDistance > 20) {
         moveDir = Left;
       }
       else {
@@ -92,18 +101,51 @@ void loop() {
     // Perform Movement
     Serial.println("Performing Movement");
     if (moveDir == Left) {
-      wheels.turnLeft();
+      wheels.turnLeft(0.98f);
+      prevLeftDistance = straightDist;
     }
     else if (moveDir == Right) {
-      wheels.turnRight();
+      wheels.turnRight(1.02f);
+      prevLeftDistance = straightDist;
     }
     else {
+      // Going Straight
+      float targetScale;
       if (straightDist > 26) {
-        wheels.moveForward(2.0f);
+        targetScale = 2.0f;
+
+        int deltaDist = currentLeftDistance - prevLeftDistance;
+        Serial.print("Current Distance Delta: ");
+        Serial.println(deltaDist);
+        if (currentLeftDistance < 12) {
+          if (deltaDist <= 0) {
+            // 10 degrees.
+            wheels.turnRight(0.11);
+            while (wheels.run()) {}
+          }
+          else if (currentLeftDistance < 6) {
+            wheels.turnRight(0.11);
+            while (wheels.run()) {}
+          }
+        }
+        else if (currentLeftDistance > 14) {
+          if (deltaDist >= 0) {
+            // 10 degrees.
+            wheels.turnLeft(0.11);
+            while (wheels.run()) {}
+          }
+          else if (currentLeftDistance > 18) {
+            wheels.turnLeft(0.11);
+            while (wheels.run()) {}
+          }
+        }
       }
       else {
-        wheels.moveForward((float)(straightDist - 10) / 8.0f);
+        targetScale = (float)(straightDist - 10) / 8.0f;
       }
+
+      // Move half forward, then check for collision, correct, then move forwards again.
+      wheels.moveForward(targetScale);
     }
   }
 
